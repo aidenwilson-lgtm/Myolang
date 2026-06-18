@@ -1,0 +1,44 @@
+name: Build Myo Compiler for Linux
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: # Allows you to manually trigger the build from your browser
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11' # Highly stable version for Pygame and LLVMLite
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev libsdl2-dev
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller pygame ply llvmlite
+
+    - name: Run PyInstaller for Linux
+      run: |
+        pyinstaller --onefile --name=myo \
+          --add-data "parser_myo.py:." \
+          --add-data "lexer.py:." \
+          --add-data "ast_nodes.py:." \
+          --add-data "codegen.py:." \
+          myo.py
+
+    - name: Upload Compiled Linux Binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: myo-linux
+        path: dist/myo
