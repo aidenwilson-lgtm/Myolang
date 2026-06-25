@@ -13,35 +13,37 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v4
 
-    - name: Install 32-bit Compilers and System Dev Libraries
+    # This natively grabs a true 32-bit Python runtime environment
+    - name: Set up 32-bit Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        architecture: 'x86'
+
+    # Pull down the 32-bit dev dependencies for compiling your C/C++ libraries
+    - name: Install 32-bit system dependencies
       run: |
         sudo dpkg --add-architecture i386
         sudo apt-get update
-        # Install the 32-bit multilib development tooling alongside your required dev libraries
-        sudo apt-get install -y gcc-multilib g++-multilib libc6-dev:i386 libasound2-dev:i386 libsdl2-dev:i386 python3-dev:i386 python3-pip:i386 python3-venv:i386
+        sudo apt-get install -y gcc-multilib g++-multilib libc6-dev:i386 libasound2-dev:i386 libsdl2-dev:i386
 
-    - name: Build 32-bit Binary with PyInstaller
+    - name: Install Python dependencies
       run: |
-        # Force a 32-bit execution environment to build the python virtual environment
-        linux32 python3 -m venv venv32
-        source venv32/bin/activate
-        
+        python -m pip install --upgrade pip
         # Verify that python sees itself running on a 32-bit architecture
         python -c "import platform; print(platform.architecture())"
-        
-        # Install pip packages inside the 32-bit venv stack
-        python -m pip install --upgrade pip
         pip install pyinstaller pygame ply llvmlite
-        
-        # Force PyInstaller to compile via the 32-bit architecture context
-        linux32 pyinstaller --onefile --name=myo \
+
+    - name: Run PyInstaller for 32-bit Linux
+      run: |
+        pyinstaller --onefile --name=myo \
           --add-data "parser_myo.py:." \
           --add-data "lexer.py:." \
           --add-data "ast_nodes.py:." \
           --add-data "codegen.py:." \
           myo.py
 
-    - name: Upload Compiled Linux Binary
+    - name: Upload Compiled 32-bit Linux Binary
       uses: actions/upload-artifact@v4
       with:
         name: myo-linux
