@@ -1,0 +1,48 @@
+name: Build Myo Compiler for Linux
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: 
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Install 32-bit Compilers and System Dev Libraries
+      run: |
+        sudo dpkg --add-architecture i386
+        sudo apt-get update
+        # Install the 32-bit multilib development tooling alongside your required dev libraries
+        sudo apt-get install -y gcc-multilib g++-multilib libc6-dev:i386 libasound2-dev:i386 libsdl2-dev:i386 python3-dev:i386 python3-pip:i386 python3-venv:i386
+
+    - name: Build 32-bit Binary with PyInstaller
+      run: |
+        # Force a 32-bit execution environment to build the python virtual environment
+        linux32 python3 -m venv venv32
+        source venv32/bin/activate
+        
+        # Verify that python sees itself running on a 32-bit architecture
+        python -c "import platform; print(platform.architecture())"
+        
+        # Install pip packages inside the 32-bit venv stack
+        python -m pip install --upgrade pip
+        pip install pyinstaller pygame ply llvmlite
+        
+        # Force PyInstaller to compile via the 32-bit architecture context
+        linux32 pyinstaller --onefile --name=myo \
+          --add-data "parser_myo.py:." \
+          --add-data "lexer.py:." \
+          --add-data "ast_nodes.py:." \
+          --add-data "codegen.py:." \
+          myo.py
+
+    - name: Upload Compiled Linux Binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: myo-linux
+        path: dist/myo
