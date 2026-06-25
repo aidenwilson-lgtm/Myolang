@@ -1,0 +1,61 @@
+name: Build Myo Compiler for Linux
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: # Allows you to manually trigger the build from your browser
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Find the code files
+      id: locate-source
+      run: |
+        # Search for the unique main entry file and get its directory path
+        SRC_DIR=$(find . -type f -name "myo.py" -exec dirname {} \; | head -n 1)
+        
+        # Verify the path was found
+        if [ -z "$SRC_DIR" ]; then
+          echo "::error::Could not find myo.py in the repository structure."
+          exit 1
+        fi
+        
+        # Save the path to the environment for subsequent steps
+        echo "COMPILER_SRC_DIR=$SRC_DIR" >> $GITHUB_ENV
+        echo "Found compiler source code directory at: $SRC_DIR"
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11' # Highly stable version for Pygame and LLVMLite
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev libsdl2-dev
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller pygame ply llvmlite
+
+    - name: Run PyInstaller for Linux
+      working-directory: ${{ env.COMPILER_SRC_DIR }}
+      run: |
+        pyinstaller --onefile --name=myo \
+          --add-data "parser_myo.py:." \
+          --add-data "lexer.py:." \
+          --add-data "ast_nodes.py:." \
+          --add-data "codegen.py:." \
+          myo.py
+
+    - name: Upload Compiled Linux Binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: myo-linux
+        path: ${{ env.COMPILER_SRC_DIR }}/dist/myo
