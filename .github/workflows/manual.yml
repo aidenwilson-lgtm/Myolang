@@ -8,6 +8,8 @@ on:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
+    container:
+      image: i386/ubuntu:latest
 
     steps:
     - name: Check out code
